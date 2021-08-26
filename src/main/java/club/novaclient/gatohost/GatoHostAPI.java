@@ -2,7 +2,11 @@ package club.novaclient.gatohost;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 import okhttp3.*;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,10 +16,10 @@ import java.nio.file.Files;
 public class GatoHostAPI {
 
 //    private final String key;
-    private final String token;
+    private final String key;
     private final String baseUrl;
 
-    private String userPageContent = "";
+    private static final String apiVersion = "v2";
 
     private OkHttpClient httpClient;
     private Gson gson;
@@ -24,384 +28,581 @@ public class GatoHostAPI {
         this("https://gato.host", key);
     }
     public GatoHostAPI(String baseUrl, String key) throws IOException {
-        this.token = key;
+        this.key = key;
         this.baseUrl = baseUrl;
         this.httpClient = new OkHttpClient();
         this.gson = new Gson();
-        update();
     }
 
-    private String getUserPageContent() throws IOException {
-        Request request = new Request.Builder()
-                .url(baseUrl + "/user")
-                .get()
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        String out = execute.body().string();
-        out = out.replaceAll("\n", "").replaceAll(" ", "");
-        return out;
-    }
-    private static String getTextBetween(String input, String before, String after) {
-        return input.substring(input.indexOf(before) + before.length(), input.indexOf(after));
+    public <T extends GatoResponse> T execute(GatoQuery<T> query) {
+        return query.execute(this);
     }
 
-    ////////// Properties //////////
-    public String getUserName() {
-        return getTextBetween(userPageContent, "<a><b>Name</b></a><br>", "</div><divclass=\"mb-1\"><a><b>Id</b></a><br>");
-    }
-    public String getId() {
-        return getTextBetween(userPageContent, "</div><divclass=\"mb-1\"><a><b>Id</b></a><br>", "</div><divclass=\"mb-1\"><a><b>Banned</b></a><br>");
-    }
-    public boolean isBanned() {
-        return getTextBetween(userPageContent, "</div><divclass=\"mb-1\"><a><b>Banned</b></a><br>", "</a></div><divclass=\"mb-1\"><a><b>Staff</b></a><br>").contains("Yes");
-    }
-    public boolean isStaff() {
-        return getTextBetween(userPageContent, "/a></div><divclass=\"mb-1\"><a><b>Staff</b></a><br>", "</a></div><divclass=\"mb-1\"><a><b>RegistrationDate</b></a><br><a>").contains("Yes");
-    }
-    public String getRegistrationDate() {
-        return getTextBetween(userPageContent, "<a><b>RegistrationDate</b></a><br><a>", "</a></div></div></div><divclass=\"containercolorformp-3mt-4\"");
-    }
-    public String getKey() {
-        return getTextBetween(userPageContent, "<divclass=\"text-center\"><h5><b>Key</b></h5><a>", "</a><br><aclass=\"resett\"href=\"/api/user/resetkey\">resetkey");
-    }
-    public String getMessage() {
-        return getTextBetween(userPageContent, "\"margin-top:15px;\"class=\"form-controlembedmessage\"value=\"", "\"><inputtype=\"text\"placeholder=\"AuthorMessage\"style=\"margin-top:35px;\"class=\"form-controlauthormessage\"value=\"");
-    }
-    public void setMessage(String message) throws IOException {
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("authormessage", getAuthorMessage())
-                .addFormDataPart("colorcode", Integer.toHexString(getColorCode()).replaceAll("0x", "#"))
-                .addFormDataPart("domain", getDomain().getId())
-                .addFormDataPart("domainprefix", getSubDomain())
-                .addFormDataPart("embedmessage", message)
-                .addFormDataPart("embedtitle", getEmbedTitle())
-                .addFormDataPart("fakeurl", getFakeUrl())
-                .addFormDataPart("iscustomembed", "" + isCustomEmbed())
-                .addFormDataPart("sitename", getEmbedSiteName())
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/user/saveimagechanges")
-                .post(requestBody)
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-    }
-    public String getAuthorMessage() {
-        return getTextBetween(userPageContent, "\"><inputtype=\"text\"placeholder=\"AuthorMessage\"style=\"margin-top:35px;\"class=\"form-controlauthormessage\"value=\"", "\"><pstyle=\"color:gray;\">Ifyouleavethisfieldblank,itwillbedisabled</p><inputtype=\"text\"placeholder=\"EmbedSiteName\"style=\"margin-top:35px;\"class=\"form-controlsitename\"value=\"");
-    }
-    public void setAuthorMessage(String message) throws IOException {
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("authormessage", message)
-                .addFormDataPart("colorcode", Integer.toHexString(getColorCode()).replaceAll("0x", "#"))
-                .addFormDataPart("domain", getDomain().getId())
-                .addFormDataPart("domainprefix", getSubDomain())
-                .addFormDataPart("embedmessage", getMessage())
-                .addFormDataPart("embedtitle", getEmbedTitle())
-                .addFormDataPart("fakeurl", getFakeUrl())
-                .addFormDataPart("iscustomembed", "" + isCustomEmbed())
-                .addFormDataPart("sitename", getEmbedSiteName())
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/user/saveimagechanges")
-                .post(requestBody)
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-    }
-    public String getEmbedSiteName() {
-        return getTextBetween(userPageContent, "\"><pstyle=\"color:gray;\">Ifyouleavethisfieldblank,itwillbedisabled</p><inputtype=\"text\"placeholder=\"EmbedSiteName\"style=\"margin-top:35px;\"class=\"form-controlsitename\"value=\"",
-                "\"><pstyle=\"color:gray;\">Ifyouleavethisfieldblank,itwillbedisabled</p><inputtype=\"text\"placeholder=\"EmbedTitle\"style=\"margin-top:35px;\"class=\"form-controlembedtitle\"value=\"");
-    }
-    public void setEmbedSiteName(String embedSiteName) throws IOException {
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("authormessage", getAuthorMessage())
-                .addFormDataPart("colorcode", Integer.toHexString(getColorCode()).replaceAll("0x", "#"))
-                .addFormDataPart("domain", getDomain().getId())
-                .addFormDataPart("domainprefix", getSubDomain())
-                .addFormDataPart("embedmessage", getMessage())
-                .addFormDataPart("embedtitle", getEmbedTitle())
-                .addFormDataPart("fakeurl", getFakeUrl())
-                .addFormDataPart("iscustomembed", "" + isCustomEmbed())
-                .addFormDataPart("sitename", embedSiteName)
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/user/saveimagechanges")
-                .post(requestBody)
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-    }
-    public String getEmbedTitle() {
-        return getTextBetween(userPageContent, "\"><pstyle=\"color:gray;\">Ifyouleavethisfieldblank,itwillbedisabled</p><inputtype=\"text\"placeholder=\"EmbedTitle\"style=\"margin-top:35px;\"class=\"form-controlembedtitle\"value=\"",
-                "\"><pstyle=\"color:gray;\">Ifyouleavethisfieldblank,itwillusetheimage'sfilename</p><inputtype=\"text\"placeholder=\"FakeUrl\"style=\"margin-top:35px;\"class=\"form-controlfakeurl\"value=\"");
-    }
-    public void setEmbedTitle(String title) throws IOException {
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("authormessage", getAuthorMessage())
-                .addFormDataPart("colorcode", Integer.toHexString(getColorCode()).replaceAll("0x", "#"))
-                .addFormDataPart("domain", getDomain().getId())
-                .addFormDataPart("domainprefix", getSubDomain())
-                .addFormDataPart("embedmessage", getMessage())
-                .addFormDataPart("embedtitle", title)
-                .addFormDataPart("fakeurl", getFakeUrl())
-                .addFormDataPart("iscustomembed", "" + isCustomEmbed())
-                .addFormDataPart("sitename", getEmbedSiteName())
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/user/saveimagechanges")
-                .post(requestBody)
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-    }
-    public String getFakeUrl() {
-        return getTextBetween(userPageContent, "\"><pstyle=\"color:gray;\">Ifyouleavethisfieldblank,itwillusetheimage'sfilename</p><inputtype=\"text\"placeholder=\"FakeUrl\"style=\"margin-top:35px;\"class=\"form-controlfakeurl\"value=\"",
-                "\"><pstyle=\"color:gray;\">Ifyouleavethisfieldblank,itwillbedisabled</p><divclass=\"mb-1\"style=\"margin-top:10px;\"><aonclick=\"saveimagesettings()\"class=\"btnbtn-roundedmy-3cccolloor2pl-3pr-3\">SAVE</a></div></div></div></div></div><divclass=\"containercolorformp-3mt-4");
-    }
-    public void setFakeUrl(String fakeUrl) throws IOException {
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("authormessage", getAuthorMessage())
-                .addFormDataPart("colorcode", Integer.toHexString(getColorCode()).replaceAll("0x", "#"))
-                .addFormDataPart("domain", getDomain().getId())
-                .addFormDataPart("domainprefix", getSubDomain())
-                .addFormDataPart("embedmessage", getMessage())
-                .addFormDataPart("embedtitle", getEmbedTitle())
-                .addFormDataPart("fakeurl", fakeUrl)
-                .addFormDataPart("iscustomembed", "" + isCustomEmbed())
-                .addFormDataPart("sitename", getEmbedSiteName())
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/user/saveimagechanges")
-                .post(requestBody)
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-    }
-    public boolean isCustomEmbed() {
-        String text = "text";
-        return userPageContent.contains("inputtype=\"checkbox\"class=\"test\"checked");
-    }
-    public void setCustomEmbed(boolean customEmbed) throws IOException {
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("authormessage", getAuthorMessage())
-                .addFormDataPart("colorcode", Integer.toHexString(getColorCode()).replaceAll("0x", "#"))
-                .addFormDataPart("domain", getDomain().getId())
-                .addFormDataPart("domainprefix", getSubDomain())
-                .addFormDataPart("embedmessage", getMessage())
-                .addFormDataPart("embedtitle", getEmbedTitle())
-                .addFormDataPart("fakeurl", getFakeUrl())
-                .addFormDataPart("iscustomembed", "" + customEmbed)
-                .addFormDataPart("sitename", getEmbedSiteName())
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/user/saveimagechanges")
-                .post(requestBody)
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-    }
-    public int getColorCode() {
-        String code = getTextBetween(userPageContent,
-                "p><h5><b>ColorCode</b></h5><p><inputdata-jscolor=\"{}\"value=\"",
-                ">;\"class=\"form-controlcolorcode\"></p><h5><b>CustomDiscordEmbed</b></h5>");
-        return Integer.decode("0x" + code);
-    }
-    public void setColorCode(int code) throws IOException {
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("authormessage", getAuthorMessage())
-                .addFormDataPart("colorcode", Integer.toHexString(code).replaceAll("0x", "#"))
-                .addFormDataPart("domain", getDomain().getId())
-                .addFormDataPart("domainprefix", getSubDomain())
-                .addFormDataPart("embedmessage", getMessage())
-                .addFormDataPart("embedtitle", getEmbedTitle())
-                .addFormDataPart("fakeurl", getFakeUrl())
-                .addFormDataPart("iscustomembed", "" + isCustomEmbed())
-                .addFormDataPart("sitename", getEmbedSiteName())
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/user/saveimagechanges")
-                .post(requestBody)
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-    }
-    public String getSubDomain() {
-        return getTextBetween(userPageContent, "text\"name=\"subdomain\"id=\"subdomain\"class=\"form-controlcolmr-2domainnprefix\"value=\"", "\"><labelfor=\"exampleFormControlSelect1\"class=\"sr-only\">Domain</label><selectrequiredplaceholder=\"Domain\"");
-    }
-    public void setSubDomain(String subDomain) throws IOException {
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("authormessage", getAuthorMessage())
-                .addFormDataPart("colorcode", Integer.toHexString(getColorCode()).replaceAll("0x", "#"))
-                .addFormDataPart("domain", getDomain().getId())
-                .addFormDataPart("domainprefix", subDomain)
-                .addFormDataPart("embedmessage", getMessage())
-                .addFormDataPart("embedtitle", getEmbedTitle())
-                .addFormDataPart("fakeurl", getFakeUrl())
-                .addFormDataPart("iscustomembed", "" + isCustomEmbed())
-                .addFormDataPart("sitename", getEmbedSiteName())
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/user/saveimagechanges")
-                .post(requestBody)
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-    }
-    public enum Domain {
-        ASTOLFOSEXDOLL_TECH("astolfosexdoll.tech", "60645ff42d52fde3e6bf1503"),
-        BEHIND_YOU_NINJA("behind-you.ninja", "6064a643b775b2fffe7cfeab"),
-        DEEZNUTS_SCHOOL("deeznuts.school", "60eb4ffb2a9575bdb4f51414"),
-        FLOPPAFRIDAY_GAMES("floppafriday.games", "60b36a1a992db09af0ffc9d6"),
-        FLUXSENCE_CLUB("fluxsence.club", "60d871f436273991cca04f9c"),
-        FLUXSENCE_SHOP("fluxsence.shop", "60d871d136273991cca04f9b"),
-        GATO_HOST_IS_COOL("gato-host-is.cool", "60d8685b36273991cca04f98"),
-        GATO_IS_POG_XYZ("gato-is-pog.xyz", "60e35aa88bd22d95f4c369b8"),
-        IGMACLIENT_INFO("igmaclient.info", "60e4616d847934b3084d4ad9"),
-        LIKES_EATING_ROCKS("likes-eating.rocks", "60649d112d52fde3e6bf1504"),
-        MAKE_MY_PP_HARD_XYZ("make-my-pp-hard.xyz", "6113a708530403938f4578a9"),
-        MAKE_YOUR_PC_PP_HARD_XYZ("make-your-pc-pp-hard.xyz", "60fd5e32607e88c80a9f3a6d"),
-        MONEROMINER_TECH("monerominer.tech", "60636d5d4de4df9e20ccc8e2"),
-        MVNCENTRAL_IS_IN_THE_JSON_CLUB("mvncentral-in-the-json.club", "60de05c5644a28812841d561"),
-        PLEASE_DONT_BUY_A_XYZ("please-dont-buy-a.xyz", "6113a71e530403938f4578aa"),
-        SIGMACLIENT_SHOP("sigmaclient.shop", "60d871ad36273991cca04f9a"),
-        STONETOSS_CLUB("stonetoss.club", "60e2cb718bd22d95f4c369b7"),
-        THEREALLO_GAY("thereallo.gay", "60d8699436273991cca04f99"),
-        UPLOADS_SYSTEMS("uploads.systems", "60ec84cc2a9575bdb4f51415"),
-        WEEBCLIENT_ROCKS("weebclient.rocks", "60db2d8bd4c9ef4140c77557"),
-        ;
-        String id;
-        String name;
-        Domain(String domainName, String id) {
-            this.id = id;
-            this.name = domainName;
+
+
+    /////////////////////////////
+    public static final MediaType JSON
+            = MediaType.parse("application/json; charset=utf-8");
+
+    public abstract static class GatoQuery<ReturnType extends GatoResponse> {
+        private final Class<ReturnType> responseType;
+
+
+        GatoQuery(Class<ReturnType> responseType) {
+            this.responseType = responseType;
         }
 
+        protected Request getHttpRequest(GatoHostAPI api) {
+            return null;
+        }
+
+        private Response executeAndGetRawResponse(GatoHostAPI api) {
+            Response response = null;
+            try {
+                response = api.httpClient.newCall(getHttpRequest(api)).execute();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return response;
+        }
+
+        private ReturnType execute(GatoHostAPI api){
+            Response response = executeAndGetRawResponse(api);
+            ReturnType parsedResponse = null;
+            try {
+                String string = response.body().string();
+                System.out.println(string);
+                parsedResponse = api.gson.fromJson(string, responseType);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return parsedResponse;
+        }
+    }
+    public abstract static class GatoResponse {
+        GatoResponse() {
+
+        }
+    }
+
+    public static class GetUserInfoQuery extends GatoQuery<GetUserInfoResponse> {
+
+        public GetUserInfoQuery() {
+            super(GetUserInfoResponse.class);
+        }
+
+        @Override
+        protected Request getHttpRequest(GatoHostAPI api) {
+            return new Request.Builder()
+                    .get()
+                    .url(api.baseUrl + "/api/" + apiVersion + "/getuserinfo")
+                    .header("key", api.key)
+                    .build();
+        }
+
+    }
+    public static class GetUserInfoResponse extends GatoResponse {
+        @SerializedName("isadmin")
+        @Expose
+        private Boolean admin;
+
+        @SerializedName("isbanned")
+        @Expose
+        private Boolean banned;
+
+        @SerializedName("banreason")
+        @Expose
+        private String banReason;
+
+        @SerializedName("_id")
+        @Expose
+        private String id;
+
+        @SerializedName("name")
+        @Expose
+        private String name;
+
+        @SerializedName("displayname")
+        @Expose
+        private String displayName;
+
+        @SerializedName("email")
+        @Expose
+        private String email;
+
+        @SerializedName("password")
+        @Expose
+        private String password;
+
+        @SerializedName("date")
+        @Expose
+        private String date;
+
+        @SerializedName("key")
+        @Expose
+        private String key;
+
+        @SerializedName("discordid")
+        @Expose
+        private String discordId;
+
+        @SerializedName("discordname")
+        @Expose
+        private String discordName;
+
+        @SerializedName("discordpicture")
+        @Expose
+        private String discordPicture;
+
+        @SerializedName("discordtag")
+        @Expose
+        private String discordTag;
+
+        @SerializedName("Embedauthormessage")
+        @Expose
+        private String embedAuthorMessage;
+
+        @SerializedName("Embedsitename")
+        @Expose
+        private String embedSiteName;
+
+        @SerializedName("Embedtitle")
+        @Expose
+        private String embedTitle;
+
+        @SerializedName("discordCustomEmbed")
+        @Expose
+        private Boolean discordCustomEmbed;
+
+        @SerializedName("fakeurl")
+        @Expose
+        private String fakeUrl;
+
+        @SerializedName("imageEmbedColor")
+        @Expose
+        private String imageEmbedColor;
+
+        @SerializedName("imageEmbedMessage")
+        @Expose
+        private String imageEmbedMessage;
+
+        @SerializedName("imageUrl")
+        @Expose
+        private String imageUrl;
+
+        @SerializedName("urlPrefix")
+        @Expose
+        private String urlPrefix;
+
+        @SerializedName("uploadtotalsize")
+        @Expose
+        private Integer uploadTotalSize;
+
+        /**
+         * Returns true if user is an admin
+         */
+        @NotNull
+        public Boolean isAdmin() {
+            return admin;
+        }
+
+        /**
+         * Returns true if user is banned
+         */
+        @NotNull
+        public Boolean isBanned() {
+            return banned;
+        }
+
+        /**
+         * Returns the ban reason. Null if player is not banned
+         */
+        @Nullable
+        public String getBanReason() {
+            return banReason;
+        }
+
+        /**
+         * Get the ID of the user. For GatoHost database data saving and data processing purpose only.
+         */
+        @NotNull
         public String getId() {
             return id;
         }
 
+        /**
+         * Get the name of the user
+         */
+        @NotNull
         public String getName() {
             return name;
         }
 
-        public static Domain getDomain(String id) {
-            for (Domain value : values()) {
-                if (value.getId().equalsIgnoreCase(id)) {
-                    return value;
+        /**
+         * Get the display name of the user
+         */
+        @NotNull
+        public String getDisplayName() {
+            return displayName;
+        }
+
+        /**
+         * Get the email of the user
+         */
+        @NotNull
+        public String getEmail() {
+            return email;
+        }
+
+        /**
+         * Get the hashed version of password. You can't do anything with it.
+         */
+        @NotNull
+        public String getPassword() {
+            return password;
+        }
+
+        /**
+         * Get the date of account being created
+         */
+        public String getDate() {
+            return date;
+        }
+
+        /**
+         * Get the key of the user. Same as the key you provided to API
+         */
+        public String getKey() {
+            return key;
+        }
+
+        /**
+         * Get the user's Discord ID
+         */
+        public String getDiscordId() {
+            return discordId;
+        }
+
+        /**
+         * Get the user's discord name
+         */
+        public String getDiscordName() {
+            return discordName;
+        }
+
+        /**
+         * Get user's discord avatar URL
+         */
+        public String getDiscordPicture() {
+            return discordPicture;
+        }
+
+        /**
+         * Get user's tag
+         */
+        public String getDiscordTag() {
+            String newTag = discordTag;
+            if (discordTag.length() < 4) {
+                newTag = "";
+                for (int i = 0; i < 4 - discordTag.length(); i++) {
+                    newTag += "0";
+                }
+                newTag += discordTag;
+            }
+            return newTag;
+        }
+
+        /**
+         * Get discord embed's author field text
+         */
+        public String getEmbedAuthorMessage() {
+            return embedAuthorMessage;
+        }
+
+        /**
+         * Get discord embed's site name field text
+         */
+        public String getEmbedSiteName() {
+            return embedSiteName;
+        }
+
+        /**
+         * Get discord embed's title field text
+         */
+        public String getEmbedTitle() {
+            return embedTitle;
+        }
+
+        /**
+         * Returns true if user enabled discord custom embed
+         */
+        public Boolean isDiscordEmbedEnabled() {
+            return discordCustomEmbed;
+        }
+
+        /**
+         * Get the fake URL (Discord Clientside Glitch that will hide real image url)
+         */
+        public String getFakeUrl() {
+            return fakeUrl;
+        }
+
+        /**
+         * Get image embed color. Should be hex
+         */
+        public String getEmbedColor() {
+            return imageEmbedColor;
+        }
+
+        /**
+         * Get discord embed's message field text
+         */
+        public String getEmbedMessage() {
+            return imageEmbedMessage;
+        }
+
+        /**
+         * Get the domain name
+         */
+        public String getDomain() {
+            return imageUrl;
+        }
+
+        /**
+         * Get the subdomain name
+         */
+        public String getSubDomain() {
+            return urlPrefix;
+        }
+
+        /**
+         * Get total size you can upload
+         */
+        public Integer getUploadTotalSize() {
+            return uploadTotalSize;
+        }
+
+    }
+
+    public static class SetUserInfoQuery extends GatoQuery<SetUserInfoResponse> {
+        private static class SetUserInfoBody {
+            @SerializedName("domainprefix")
+            @Expose
+            private String domainprefix;
+            @SerializedName("domain")
+            @Expose
+            private String domain;
+            @SerializedName("colorcode")
+            @Expose
+            private String colorcode;
+            @SerializedName("iscustomembed")
+            @Expose
+            private Boolean iscustomembed;
+            @SerializedName("embedmessage")
+            @Expose
+            private String embedmessage;
+            @SerializedName("authormessage")
+            @Expose
+            private String authormessage;
+            @SerializedName("sitename")
+            @Expose
+            private String sitename;
+            @SerializedName("embedtitle")
+            @Expose
+            private String embedtitle;
+            @SerializedName("fakeurl")
+            @Expose
+            private String fakeurl;
+
+            /**
+             * No args constructor for use in serialization
+             *
+             */
+            public SetUserInfoBody() {
+
+            }
+
+            /**
+             * Create new SetUserInfoBody
+             * @param embedtitle Embed title
+             * @param authormessage Author text field
+             * @param domain Domain
+             * @param iscustomembed True if custom embed enabled
+             * @param domainprefix Subdomain
+             * @param sitename Site name in discord's embed field
+             * @param colorcode Color code
+             * @param embedmessage Discord embed's Message
+             * @param fakeurl Fake URL that will glitch discord client
+             */
+            public SetUserInfoBody(String domainprefix, String domain, String colorcode, Boolean iscustomembed, String embedmessage, String authormessage, String sitename, String embedtitle, String fakeurl) {
+                super();
+                this.domainprefix = domainprefix;
+                this.domain = domain;
+                this.colorcode = colorcode;
+                this.iscustomembed = iscustomembed;
+                this.embedmessage = embedmessage;
+                this.authormessage = authormessage;
+                this.sitename = sitename;
+                this.embedtitle = embedtitle;
+                this.fakeurl = fakeurl;
+            }
+        }
+
+        private final SetUserInfoBody body;
+        private SetUserInfoQuery(String domainprefix, String domain, String colorcode, Boolean iscustomembed, String embedmessage, String authormessage, String sitename, String embedtitle, String fakeurl) {
+            super(SetUserInfoResponse.class);
+            body = new SetUserInfoBody(domainprefix, domain, colorcode, iscustomembed, embedmessage, authormessage, sitename, embedtitle, fakeurl);
+        }
+
+        @Override
+        protected Request getHttpRequest(GatoHostAPI api) {
+            return new Request.Builder()
+                    .url(api.baseUrl + "/api/" + apiVersion + "/saveimagechanges")
+                    .header("key", api.key)
+                    .post(RequestBody.create(api.gson.toJson(body), JSON))
+                    .build();
+        }
+
+        public static class Builder {
+            private String domainprefix;
+            private String domain;
+            private String colorcode;
+            private Boolean iscustomembed;
+            private String embedmessage;
+            private String authormessage;
+            private String sitename;
+            private String embedtitle;
+            private String fakeurl;
+
+            private GetUserInfoResponse userInfo;
+
+            /**
+             * Constructor of builder class
+             * @param api For getting user info
+             */
+            public Builder(GatoHostAPI api) {
+                GetUserInfoQuery query = new GetUserInfoQuery();
+                userInfo = api.execute(query);
+                domainprefix = userInfo.getSubDomain();
+                domain = userInfo.getDomain();
+                colorcode = userInfo.getEmbedColor();
+                iscustomembed = userInfo.isDiscordEmbedEnabled();
+                embedmessage = userInfo.getEmbedMessage();
+                authormessage = userInfo.getEmbedAuthorMessage();
+                sitename = userInfo.getEmbedSiteName();
+                embedtitle = userInfo.getEmbedTitle();
+                fakeurl = userInfo.getFakeUrl();
+            }
+
+
+            public Builder subdomain(String subdomain) {
+                this.domainprefix = subdomain;
+                return this;
+            }
+            public Builder domain(String domain) {
+                this.domain = domain;
+                return this;
+            }
+            public Builder colorcode(String colorcode) {
+                this.colorcode = colorcode;
+                return this;
+            }
+            public Builder enableCustomEmbed(Boolean enabled) {
+                this.iscustomembed = enabled;
+                return this;
+            }
+            public Builder embedMessage(String message) {
+                this.embedmessage = message;
+                return this;
+            }
+            public Builder authorText(String authorText) {
+                this.authormessage = authorText;
+                return this;
+            }
+            public Builder siteName(String siteName) {
+                this.sitename = siteName;
+                return this;
+            }
+            public Builder embedTitle(String embedTitle) {
+                this.embedtitle = embedTitle;
+                return this;
+            }
+            public Builder fakeUrl(String fakeurl) {
+                this.fakeurl = fakeurl;
+                return this;
+            }
+
+            public SetUserInfoQuery build() {
+                return new SetUserInfoQuery(domainprefix, domain, colorcode, iscustomembed, embedmessage, authormessage, sitename, embedtitle, fakeurl);
+            }
+        }
+    }
+    public static class SetUserInfoResponse extends GatoResponse {
+
+    }
+
+    public static class UploadImageQuery extends GatoQuery<UploadImageResponse> {
+
+        private final File imageFile;
+        public UploadImageQuery(File imageFile) {
+            super(UploadImageResponse.class);
+            this.imageFile = imageFile;
+        }
+
+        @Override
+        public Request getHttpRequest(GatoHostAPI api) {
+            if (!imageFile.exists() || !imageFile.isFile()) {
+                try {
+                    throw new IOException("File could not be found");
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
-            return null;
-        }
-        public static Domain getDomainByName(String name) {
-            for (Domain value : values()) {
-                if (value.getName().equalsIgnoreCase(name)) {
-                    return value;
-                }
-            }
-            return null;
-        }
-    }
-    public Domain getDomain() {
-        int startIndex = userPageContent.indexOf("selected>") + "selected>".length();
-        int endIndex = userPageContent.indexOf("</option>", startIndex);
-        return Domain.getDomainByName(userPageContent.substring(startIndex, endIndex));
-    }
-    public void setDomain(Domain domain) throws IOException {
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("authormessage", getAuthorMessage())
-                .addFormDataPart("colorcode", Integer.toHexString(getColorCode()).replaceAll("0x", "#"))
-                .addFormDataPart("domain", domain.getId())
-                .addFormDataPart("domainprefix", getSubDomain())
-                .addFormDataPart("embedmessage", getMessage())
-                .addFormDataPart("embedtitle", getEmbedTitle())
-                .addFormDataPart("fakeurl", getFakeUrl())
-                .addFormDataPart("iscustomembed", "" + isCustomEmbed())
-                .addFormDataPart("sitename", getEmbedSiteName())
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/user/saveimagechanges")
-                .post(requestBody)
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-    }
-    /////////////////////////////
-
-    ////////// Actions //////////
-    public String resetKey() throws IOException {
-        String url = baseUrl + "/api/user/resetkey";
-        Request request = new Request.Builder()
-                .url(url)
-                .get()
-                .header("cookie", "token=" + token)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        update();
-        return getKey();
-    }
-    public URL uploadAndGetUrl(File imageFile) throws IOException {
-        if (!imageFile.exists() || !imageFile.isFile()) {
-            throw new IOException("File could not be found");
-        }
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("key", getKey())
-                .addFormDataPart("img", imageFile.getName(), RequestBody.create(imageFile, MediaType.get(Files.probeContentType(imageFile.toPath()))))
-                .build();
-        Request request = new Request.Builder()
-                .url(baseUrl + "/img/upload/")
-                .post(requestBody)
-                .build();
-        Call call = httpClient.newCall(request);
-        Response execute = call.execute();
-        String out = execute.body().string();
-
-        try {
-            JsonObject object = gson.fromJson(out, JsonObject.class);
-            String url = object.get("url").getAsString();
-            return new URL(url);
-        } catch (Exception e) {
+            RequestBody requestBody = null;
             try {
-                JsonObject object = gson.fromJson(out, JsonObject.class);
-                String url = object.get("url").getAsString().replaceAll(getFakeUrl(), "");
-                return new URL(url.substring(url.indexOf("http")));
-            } catch (Exception ex) {
-                throw new IOException("Could not parse data. Is key valid?", e);
+                requestBody = new MultipartBody.Builder()
+                        .setType(MultipartBody.FORM)
+                        .addFormDataPart("key", api.key)
+                        .addFormDataPart("img", imageFile.getName(), RequestBody.create(imageFile, MediaType.get(Files.probeContentType(imageFile.toPath()))))
+                        .build();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
+            Request request = new Request.Builder()
+                    .url(api.baseUrl + "/img/upload/")
+                    .post(requestBody)
+                    .build();
+            return request;
         }
     }
-    public void update() throws IOException{
-        userPageContent = getUserPageContent();
+    public static class UploadImageResponse extends GatoResponse {
+        @SerializedName("url")
+        @Expose
+        private String url;
+
+        public URL getUrl() {
+            try {
+                return new URL(url);
+            } catch (Exception e) {
+                try {
+                    if (url.contains("|")) {
+                        int i = url.lastIndexOf("https://");
+                        if (i == -1) {
+                            i = url.lastIndexOf("http://");
+                        }
+                        return new URL(url.substring(i));
+                    }
+                    throw e;
+                } catch (Exception ex) {
+                    try {
+                        throw new IOException("Could not parse data. Is key valid?", e);
+                    } catch (IOException exc) {
+                        exc.printStackTrace();
+                    }
+                }
+            }
+            return null;
+        }
     }
-    /////////////////////////////
+
 }

@@ -6,7 +6,7 @@
 
     <groupId>club.novaclient</groupId>
     <artifactId>GatoHost</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>2.0-BETA</version>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
@@ -27,5 +27,12 @@
             <scope>compile</scope>
         </dependency>
     </dependencies>
+
+    <distributionManagement>
+        <repository>
+            <id>nova</id>
+            <url>http://69.69.0.1:8081/repository/nova-repository/</url>
+        </repository>
+    </distributionManagement>
 
 </project>
