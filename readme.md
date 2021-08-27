@@ -1,3 +1,5 @@
+# This is the archived version! Gato.Host is making it the official Java API, and moved it to their organization!
+# New Repository: https://github.com/Gato-Host/GatoHostAPI-Java
 # Official GatoHost API 【Public Version】
 A java API that allows you to get/set user info and more with java code and user's key!
 ## API Info
@@ -54,3 +56,6 @@ We are using [WTFPL](http://www.wtfpl.net/). It means you can do anything you wa
 
   0. You just DO WHAT THE FUCK YOU WANT TO.
 ```
+
+## Archived
+This repository is archived and there won't be update anymore. If you want updates, go for gatohost official forked one: https://github.com/Gato-Host/GatoHostAPI-Java<br>
